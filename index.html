@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<title>Ledger — บันทึกการเทรดคริปโต</title>
+<meta name="theme-color" content="#0B0F14" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Ledger" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" type="image/png" href="icon-192.png" />
+<style>html,body{background:#0B0F14;margin:0;}#root{min-height:100vh;}</style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+
+function lsGet(key){ try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+function lsSet(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch(e){ return false; } }
+
+const ICONS = {
+  plus: <React.Fragment><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></React.Fragment>,
+  x: <React.Fragment><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></React.Fragment>,
+  pencil: <React.Fragment><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></React.Fragment>,
+  trash: <React.Fragment><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></React.Fragment>,
+  more: <React.Fragment><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/></React.Fragment>,
+  download: <React.Fragment><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></React.Fragment>,
+  alert: <React.Fragment><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></React.Fragment>,
+  trendUp: <React.Fragment><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></React.Fragment>,
+  wallet: <React.Fragment><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></React.Fragment>,
+  search: <React.Fragment><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></React.Fragment>,
+  activity: <React.Fragment><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></React.Fragment>,
+  target: <React.Fragment><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></React.Fragment>,
+  flame: <React.Fragment><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></React.Fragment>,
+};
+function Icon({ name, size = 18, className, style }) {
+  return (
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {ICONS[name]}
+    </svg>
+  );
+}
+const Plus = (p) => <Icon name="plus" {...p} />;
+const X = (p) => <Icon name="x" {...p} />;
+const Pencil = (p) => <Icon name="pencil" {...p} />;
+const Trash2 = (p) => <Icon name="trash" {...p} />;
+const MoreVertical = (p) => <Icon name="more" {...p} />;
+const Download = (p) => <Icon name="download" {...p} />;
+const AlertTriangle = (p) => <Icon name="alert" {...p} />;
+const TrendingUp = (p) => <Icon name="trendUp" {...p} />;
+const Wallet = (p) => <Icon name="wallet" {...p} />;
+const Search = (p) => <Icon name="search" {...p} />;
+const Activity = (p) => <Icon name="activity" {...p} />;
+const Target = (p) => <Icon name="target" {...p} />;
+const Flame = (p) => <Icon name="flame" {...p} />;
+
+function EquityChart({ data, color }) {
+  const W = 320, H = 160, pad = 8;
+  if (!data || data.length < 2) return null;
+  const ys = data.map((d) => d.equity);
+  let min = Math.min(...ys, 0), max = Math.max(...ys, 0);
+  if (min === max) max = min + 1;
+  const n = data.length;
+  const xAt = (i) => pad + (i / (n - 1)) * (W - 2 * pad);
+  const yAt = (v) => pad + (1 - (v - min) / (max - min)) * (H - 2 * pad);
+  const line = data.map((d, i) => `${xAt(i)},${yAt(d.equity)}`).join(" ");
+  const area = `${xAt(0)},${yAt(min)} ` + line + ` ${xAt(n - 1)},${yAt(min)}`;
+  const zeroY = yAt(0);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="180" preserveAspectRatio="none" style={{ display: "block" }}>
+      <defs>
+        <linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.32" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="#28313C" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+      <polygon points={area} fill="url(#eqfill)" />
+      <polyline points={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+
+
+/* ---------- helpers ---------- */
+const uid = () =>
+  (typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+function nowLocalISO() {
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function fmtMoney(v) {
+  if (v == null || isNaN(v)) return "—";
+  const a = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (v < 0 ? "-$" : "$") + a;
+}
+function fmtSigned(v) {
+  if (v == null || isNaN(v)) return "—";
+  return (v > 0 ? "+" : "") + fmtMoney(v);
+}
+function fmtPct(v) {
+  if (v == null || isNaN(v)) return "—";
+  return (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+}
+function fmtPrice(p) {
+  if (p == null || isNaN(p)) return "—";
+  const n = Number(p);
+  if (n >= 1000) return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (n >= 1) return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  if (n > 0) return n.toLocaleString(undefined, { maximumFractionDigits: 8 });
+  return "0";
+}
+function fmtDate(s) {
+  if (!s) return "—";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "—";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function computeTrade(t) {
+  const entry = parseFloat(t.entryPrice);
+  const exit = parseFloat(t.exitPrice);
+  const margin = parseFloat(t.margin) || 0;
+  const lev = parseFloat(t.leverage) || 1;
+  const fees = parseFloat(t.fees) || 0;
+  const dir = t.direction === "short" ? -1 : 1;
+  if (isNaN(entry) || isNaN(exit) || entry <= 0) {
+    return { notional: 0, qty: 0, gross: 0, net: -fees, roi: 0, R: null, valid: false };
+  }
+  const notional = margin * lev;
+  const qty = notional / entry;
+  const gross = (exit - entry) * qty * dir;
+  const net = gross - fees;
+  const roi = margin > 0 ? (net / margin) * 100 : 0;
+  let R = null;
+  const sl = parseFloat(t.stopLoss);
+  if (!isNaN(sl) && sl > 0) {
+    const risk = Math.abs(entry - sl) * qty;
+    if (risk > 0) R = net / risk;
+  }
+  return { notional, qty, gross, net, roi, R, valid: true };
+}
+
+const MARKETS = [
+  { value: "bull", label: "ขาขึ้น (Bull)" },
+  { value: "bear", label: "ขาลง (Bear)" },
+  { value: "side", label: "Sideways" },
+];
+const EMOTIONS = [
+  { value: "calm", label: "สงบ / มีวินัย" },
+  { value: "confident", label: "มั่นใจ" },
+  { value: "fear", label: "กลัว / ลังเล" },
+  { value: "greed", label: "โลภ" },
+  { value: "fomo", label: "FOMO" },
+  { value: "revenge", label: "แก้แค้น (Revenge)" },
+];
+const labelOf = (arr, v) => (arr.find((x) => x.value === v) || {}).label || "—";
+
+const emptyForm = () => ({
+  pair: "", type: "futures", direction: "long", leverage: "10", margin: "",
+  entryPrice: "", exitPrice: "", stopLoss: "", takeProfit: "", fees: "",
+  entryDate: nowLocalISO(), exitDate: nowLocalISO(),
+  strategy: "", market: "side", emotion: "calm", followedPlan: true,
+  reason: "", notes: "",
+});
+
+function dayName(s) {
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "ไม่ระบุ";
+  return ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัส", "ศุกร์", "เสาร์"][d.getDay()];
+}
+function holdMs(t) {
+  if (!t.entryDate || !t.exitDate) return null;
+  const a = new Date(t.entryDate).getTime(), b = new Date(t.exitDate).getTime();
+  if (isNaN(a) || isNaN(b) || b < a) return null;
+  return b - a;
+}
+function fmtDuration(ms) {
+  if (ms == null) return "—";
+  const m = Math.round(ms / 60000);
+  if (m < 60) return m + " นาที";
+  const h = m / 60;
+  if (h < 24) return (Math.round(h * 10) / 10) + " ชม.";
+  return (Math.round((h / 24) * 10) / 10) + " วัน";
+}
+function breakdownBy(rows, keyFn) {
+  const map = new Map();
+  rows.forEach(({ t, c }) => {
+    const k = keyFn(t) || "ไม่ระบุ";
+    if (!map.has(k)) map.set(k, { key: k, count: 0, wins: 0, pnl: 0, rSum: 0, rCount: 0 });
+    const g = map.get(k);
+    g.count++; g.pnl += c.net;
+    if (c.net > 0) g.wins++;
+    if (c.R != null) { g.rSum += c.R; g.rCount++; }
+  });
+  return [...map.values()].map((g) => ({
+    ...g,
+    winRate: g.count ? (g.wins / g.count) * 100 : 0,
+    avgR: g.rCount ? g.rSum / g.rCount : null,
+  })).sort((a, b) => b.pnl - a.pnl);
+}
+
+/* ---------- tiny components ---------- */
+function Seg({ value, onChange, options }) {
+  return (
+    <div className="seg">
+      {options.map((o) => (
+        <button
+          key={String(o.value)}
+          className={value === o.value ? "active" : ""}
+          onClick={() => onChange(o.value)}
+          style={value === o.value && o.color ? { color: o.color } : undefined}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Stat({ label, value, sub, vClass }) {
+  return (
+    <div className="card" style={{ padding: 14 }}>
+      <div className="t-faint" style={{ fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+      <div className={`mono ${vClass || "t-text"}`} style={{ fontSize: 17, fontWeight: 600 }}>{value}</div>
+      {sub && <div className="t-mute" style={{ fontSize: 11, marginTop: 3 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function KV({ k, v, vClass }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0" }}>
+      <span className="t-mute" style={{ fontSize: 12 }}>{k}</span>
+      <span className={`mono ${vClass || "t-text"}`} style={{ fontSize: 12, textAlign: "right" }}>{v}</span>
+    </div>
+  );
+}
+
+function Labeled({ label, hint, children }) {
+  return (
+    <div>
+      <div className="t-mute" style={{ fontSize: 12, marginBottom: 6 }}>{label}</div>
+      {children}
+      {hint && <div className="t-faint" style={{ fontSize: 11, marginTop: 4 }}>{hint}</div>}
+    </div>
+  );
+}
+
+function ChartTip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div style={{ background: "#0E141B", border: "1px solid #28313C", borderRadius: 8, padding: "8px 10px" }}>
+      {p.label && <div className="t-mute" style={{ fontSize: 11, marginBottom: 2 }}>{p.label}</div>}
+      <div className="mono" style={{ fontSize: 13, color: "#E7EDF3" }}>ทุนสะสม: {fmtSigned(p.equity)}</div>
+      {p.net != null && (
+        <div className="mono" style={{ fontSize: 11, color: p.net >= 0 ? "#21C997" : "#F75A68" }}>
+          เทรดนี้: {fmtSigned(p.net)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- main ---------- */
+function CryptoTradingJournal() {
+  const [trades, setTrades] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("trades");
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm());
+  const [expanded, setExpanded] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [delConfirm, setDelConfirm] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [search, setSearch] = useState("");
+  const [resultFilter, setResultFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("recent");
+  const [startCapital, setStartCapital] = useState(0);
+  const [capInput, setCapInput] = useState("");
+
+  useEffect(() => {
+    let on = true;
+    (() => {
+      const t = lsGet("journal:trades");
+      if (on && Array.isArray(t)) setTrades(t);
+      const s = lsGet("journal:settings");
+      if (on && s && s.startCapital != null) { setStartCapital(s.startCapital); setCapInput(String(s.startCapital)); }
+      if (on) setLoading(false);
+    })();
+    return () => { on = false; };
+  }, []);
+
+  function persist(next) {
+    setTrades(next);
+    if (!lsSet("journal:trades", next)) flash("บันทึกไม่สำเร็จ ลองอีกครั้ง");
+  }
+
+  function flash(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2600);
+  }
+
+  function persistSettings(next) {
+    lsSet("journal:settings", next);
+  }
+  function commitCapital() {
+    const v = parseFloat(capInput) || 0;
+    setStartCapital(v);
+    persistSettings({ startCapital: v });
+    flash("ตั้งทุนเริ่มต้นแล้ว");
+  }
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  function openAdd() {
+    setForm(emptyForm());
+    setEditing(null);
+    setShowForm(true);
+  }
+  function openEdit(t) {
+    setForm({ ...emptyForm(), ...t });
+    setEditing(t);
+    setShowForm(true);
+  }
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+  }
+
+  const live = computeTrade({
+    ...form,
+    leverage: form.type === "spot" ? "1" : form.leverage,
+    direction: form.type === "spot" ? "long" : form.direction,
+  });
+  const valid =
+    form.pair.trim() &&
+    parseFloat(form.entryPrice) > 0 &&
+    parseFloat(form.exitPrice) > 0 &&
+    parseFloat(form.margin) > 0 &&
+    (form.type === "spot" || parseFloat(form.leverage) > 0);
+
+  function save() {
+    if (!valid) return;
+    const t = {
+      ...form,
+      pair: form.pair.trim().toUpperCase(),
+      leverage: form.type === "spot" ? "1" : form.leverage,
+      direction: form.type === "spot" ? "long" : form.direction,
+      id: editing ? editing.id : uid(),
+      createdAt: editing ? editing.createdAt : Date.now(),
+      updatedAt: Date.now(),
+    };
+    const next = editing ? trades.map((x) => (x.id === t.id ? t : x)) : [...trades, t];
+    persist(next);
+    closeForm();
+    flash(editing ? "อัปเดตเทรดแล้ว" : "เพิ่มเทรดแล้ว");
+  }
+
+  function removeTrade(id) {
+    persist(trades.filter((x) => x.id !== id));
+    setDelConfirm(null);
+    setExpanded(null);
+    flash("ลบเทรดแล้ว");
+  }
+
+  function exportCSV() {
+    setMenuOpen(false);
+    const head = ["pair", "type", "direction", "leverage", "margin", "entry", "exit", "stopLoss", "takeProfit", "fees", "netPnL", "roi%", "R", "entryDate", "exitDate", "strategy", "market", "emotion", "followedPlan", "reason", "notes"];
+    const lines = [head.join(",")];
+    trades.forEach((t) => {
+      const c = computeTrade(t);
+      const row = [t.pair, t.type, t.direction, t.leverage, t.margin, t.entryPrice, t.exitPrice, t.stopLoss, t.takeProfit, t.fees, c.net.toFixed(2), c.roi.toFixed(2), c.R == null ? "" : c.R.toFixed(2), t.entryDate, t.exitDate, t.strategy, t.market, t.emotion, t.followedPlan, t.reason, t.notes]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",");
+      lines.push(row);
+    });
+    try {
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "crypto-trading-journal.csv"; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { flash("ส่งออกไม่สำเร็จ"); }
+  }
+
+  const rows = useMemo(() => trades.map((t) => ({ t, c: computeTrade(t) })), [trades]);
+
+  const stats = useMemo(() => {
+    const n = rows.length;
+    let totalPnl = 0, grossWin = 0, grossLoss = 0, winCount = 0, lossCount = 0,
+      planCount = 0, fees = 0, rSum = 0, rCount = 0, best = null, worst = null;
+    rows.forEach(({ t, c }) => {
+      totalPnl += c.net;
+      fees += parseFloat(t.fees) || 0;
+      if (c.net > 0) { winCount++; grossWin += c.net; }
+      else if (c.net < 0) { lossCount++; grossLoss += Math.abs(c.net); }
+      if (t.followedPlan) planCount++;
+      if (c.R != null) { rSum += c.R; rCount++; }
+      if (best === null || c.net > best.c.net) best = { t, c };
+      if (worst === null || c.net < worst.c.net) worst = { t, c };
+    });
+    return {
+      n, totalPnl,
+      winRate: n ? (winCount / n) * 100 : 0,
+      winCount, lossCount,
+      avgWin: winCount ? grossWin / winCount : 0,
+      avgLoss: lossCount ? grossLoss / lossCount : 0,
+      pf: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : 0,
+      avgR: rCount ? rSum / rCount : null,
+      planRate: n ? (planCount / n) * 100 : 0,
+      fees, best, worst,
+    };
+  }, [rows]);
+
+  const equity = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => {
+      const da = a.t.exitDate ? new Date(a.t.exitDate).getTime() : a.t.createdAt || 0;
+      const db = b.t.exitDate ? new Date(b.t.exitDate).getTime() : b.t.createdAt || 0;
+      return da - db;
+    });
+    let cum = 0;
+    const arr = [{ x: 0, equity: 0, label: "" }];
+    sorted.forEach((r, i) => { cum += r.c.net; arr.push({ x: i + 1, equity: cum, label: r.t.pair, net: r.c.net }); });
+    return arr;
+  }, [rows]);
+
+  const displayTrades = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const arr = rows.filter(({ t, c }) => {
+      if (q && !t.pair.toLowerCase().includes(q)) return false;
+      if (resultFilter === "win" && !(c.net > 0)) return false;
+      if (resultFilter === "loss" && !(c.net < 0)) return false;
+      return true;
+    });
+    return [...arr].sort((a, b) => {
+      if (sortBy === "pnl") return b.c.net - a.c.net;
+      if (sortBy === "roi") return b.c.roi - a.c.roi;
+      const da = a.t.exitDate ? new Date(a.t.exitDate).getTime() : a.t.createdAt || 0;
+      const db = b.t.exitDate ? new Date(b.t.exitDate).getTime() : b.t.createdAt || 0;
+      return db - da;
+    });
+  }, [rows, search, resultFilter, sortBy]);
+
+  const risk = useMemo(() => {
+    const ordered = [...rows].sort((a, b) => {
+      const da = a.t.exitDate ? new Date(a.t.exitDate).getTime() : a.t.createdAt || 0;
+      const db = b.t.exitDate ? new Date(b.t.exitDate).getTime() : b.t.createdAt || 0;
+      return da - db;
+    });
+    let peak = startCapital, maxDD = 0, maxDDpct = 0, cum = 0;
+    let winStreak = 0, lossStreak = 0, curW = 0, curL = 0;
+    let totalR = 0, rCount = 0, holdSum = 0, holdCount = 0;
+    ordered.forEach((r) => {
+      cum += r.c.net;
+      const eq = startCapital + cum;
+      if (eq > peak) peak = eq;
+      const dd = peak - eq;
+      if (dd > maxDD) { maxDD = dd; maxDDpct = peak > 0 ? (dd / peak) * 100 : 0; }
+      if (r.c.net > 0) { curW++; curL = 0; if (curW > winStreak) winStreak = curW; }
+      else if (r.c.net < 0) { curL++; curW = 0; if (curL > lossStreak) lossStreak = curL; }
+      else { curW = 0; curL = 0; }
+      if (r.c.R != null) { totalR += r.c.R; rCount++; }
+      const h = holdMs(r.t); if (h != null) { holdSum += h; holdCount++; }
+    });
+    const n = ordered.length;
+    return {
+      maxDD, maxDDpct, winStreak, lossStreak,
+      expectancy: n ? cum / n : 0,
+      totalR: rCount ? totalR : null,
+      avgHold: holdCount ? holdSum / holdCount : null,
+      balance: startCapital + cum,
+      accountReturnPct: startCapital > 0 ? (cum / startCapital) * 100 : null,
+      n,
+    };
+  }, [rows, startCapital]);
+
+  const breakdowns = useMemo(() => ({
+    strategy: breakdownBy(rows, (t) => (t.strategy || "").trim() || "ไม่ระบุ"),
+    coin: breakdownBy(rows, (t) => t.pair),
+    direction: breakdownBy(rows, (t) => (t.direction === "short" ? "Short" : "Long")),
+    emotion: breakdownBy(rows, (t) => labelOf(EMOTIONS, t.emotion)),
+    market: breakdownBy(rows, (t) => labelOf(MARKETS, t.market)),
+    day: breakdownBy(rows, (t) => dayName(t.exitDate)),
+  }), [rows]);
+
+  const curveColor = equity.length && equity[equity.length - 1].equity >= 0 ? "#21C997" : "#F75A68";
+  const totalClass = stats.totalPnl > 0 ? "t-green" : stats.totalPnl < 0 ? "t-red" : "t-mute";
+
+  return (
+    <div className="app bg-ink" style={{ minHeight: "100vh", color: "#E7EDF3" }}>
+      <style>{CSS}</style>
+
+      {/* header */}
+      <div className="header bd-b">
+        <div className="mx-auto" style={{ maxWidth: 720, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="logomark"><span /><span /><span /></div>
+            <div>
+              <div style={{ fontWeight: 700, letterSpacing: ".08em", fontSize: 15 }}>LEDGER</div>
+              <div className="t-faint" style={{ fontSize: 11 }}>บันทึกการเทรดคริปโต</div>
+            </div>
+          </div>
+          <div style={{ position: "relative" }}>
+            <button className="iconbtn" onClick={() => setMenuOpen((o) => !o)} aria-label="เมนู"><MoreVertical size={18} /></button>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
+                <div className="menu">
+                  <button onClick={exportCSV}><Download size={15} /> ส่งออก CSV</button>
+                  <button className="t-red" onClick={() => { setMenuOpen(false); setConfirmClear(true); }} disabled={!trades.length}>
+                    <Trash2 size={15} /> ลบข้อมูลทั้งหมด
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto" style={{ maxWidth: 720, padding: "16px 16px 110px" }}>
+        {loading ? (
+          <div className="t-mute" style={{ textAlign: "center", padding: "60px 0", fontSize: 14 }}>กำลังโหลด…</div>
+        ) : (
+          <>
+            {/* summary band */}
+            <div className="card" style={{ padding: 18, marginBottom: 14 }}>
+              <div className="t-faint" style={{ fontSize: 11, letterSpacing: ".05em", textTransform: "uppercase" }}>กำไร/ขาดทุนสุทธิรวม</div>
+              <div className={`mono ${totalClass}`} style={{ fontSize: 34, fontWeight: 700, lineHeight: 1.1, marginTop: 4 }}>
+                {stats.n ? fmtSigned(stats.totalPnl) : "$0.00"}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16 }}>
+                <MiniStat label="เทรดทั้งหมด" value={stats.n} />
+                <MiniStat label="Win rate" value={stats.n ? stats.winRate.toFixed(0) + "%" : "—"} />
+                <MiniStat label="Avg R" value={stats.avgR == null ? "—" : (stats.avgR > 0 ? "+" : "") + stats.avgR.toFixed(2) + "R"} />
+              </div>
+            </div>
+
+            {/* equity curve */}
+            <div className="card" style={{ padding: "14px 8px 8px 8px", marginBottom: 14 }}>
+              <div className="t-mute" style={{ fontSize: 12, padding: "0 8px 6px", display: "flex", alignItems: "center", gap: 6 }}>
+                <TrendingUp size={14} /> เส้นทุนสะสม (Equity curve)
+              </div>
+              {stats.n ? (
+                <EquityChart data={equity} color={curveColor} />
+              ) : (
+                <div style={{ height: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                  <Wallet size={26} className="t-faint" />
+                  <div className="t-mute" style={{ fontSize: 13, textAlign: "center" }}>
+                    ยังไม่มีเทรด<br /><span className="t-faint" style={{ fontSize: 12 }}>กดปุ่ม + เพื่อเพิ่มเทรดแรกของคุณ</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* tabs */}
+            <div className="seg" style={{ marginBottom: 14 }}>
+              <button className={tab === "trades" ? "active" : ""} onClick={() => setTab("trades")}>รายการ</button>
+              <button className={tab === "stats" ? "active" : ""} onClick={() => setTab("stats")}>สถิติ</button>
+              <button className={tab === "insights" ? "active" : ""} onClick={() => setTab("insights")}>วิเคราะห์</button>
+            </div>
+
+            {tab === "trades" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {rows.length > 0 && (
+                  <div className="card" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ position: "relative" }}>
+                      <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#586472" }} />
+                      <input className="inp" style={{ paddingLeft: 32 }} placeholder="ค้นหาเหรียญ เช่น BTC" value={search} onChange={(e) => setSearch(e.target.value)} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div className="seg" style={{ flex: 1, minWidth: 168 }}>
+                        <button className={resultFilter === "all" ? "active" : ""} onClick={() => setResultFilter("all")}>ทั้งหมด</button>
+                        <button className={resultFilter === "win" ? "active" : ""} onClick={() => setResultFilter("win")} style={resultFilter === "win" ? { color: "#21C997" } : undefined}>กำไร</button>
+                        <button className={resultFilter === "loss" ? "active" : ""} onClick={() => setResultFilter("loss")} style={resultFilter === "loss" ? { color: "#F75A68" } : undefined}>ขาดทุน</button>
+                      </div>
+                      <div className="seg" style={{ flex: 1, minWidth: 168 }}>
+                        <button className={sortBy === "recent" ? "active" : ""} onClick={() => setSortBy("recent")}>ล่าสุด</button>
+                        <button className={sortBy === "pnl" ? "active" : ""} onClick={() => setSortBy("pnl")}>กำไร</button>
+                        <button className={sortBy === "roi" ? "active" : ""} onClick={() => setSortBy("roi")}>ROI</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {rows.length === 0 && (
+                  <div className="card" style={{ padding: 28, textAlign: "center" }}>
+                    <div className="t-mute" style={{ fontSize: 14, marginBottom: 14 }}>ยังไม่มีรายการเทรด</div>
+                    <button className="btn-primary" onClick={openAdd}>+ เพิ่มเทรดแรก</button>
+                  </div>
+                )}
+                {rows.length > 0 && displayTrades.length === 0 && (
+                  <div className="card" style={{ padding: 24, textAlign: "center" }}>
+                    <div className="t-mute" style={{ fontSize: 13 }}>ไม่พบเทรดที่ตรงกับตัวกรอง</div>
+                  </div>
+                )}
+                {displayTrades.map(({ t, c }) => {
+                  const isOpen = expanded === t.id;
+                  const netClass = c.net > 0 ? "t-green" : c.net < 0 ? "t-red" : "t-mute";
+                  return (
+                    <div key={t.id} className="card tradecard">
+                      <div className="trow" onClick={() => setExpanded(isOpen ? null : t.id)}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 600, fontSize: 15 }}>{t.pair}</span>
+                            <span className="badge" style={dirBadge(t.direction)}>{t.direction === "short" ? "SHORT" : "LONG"}</span>
+                            <span className="badge" style={{ background: "#1B222B", color: "#8A97A4" }}>
+                              {t.type === "spot" ? "Spot" : `Futures ${t.leverage}x`}
+                            </span>
+                          </div>
+                          <div className="mono t-faint" style={{ fontSize: 12, marginTop: 6 }}>
+                            {fmtPrice(t.entryPrice)} <span className="t-faint">→</span> {fmtPrice(t.exitPrice)}
+                            <span className="t-faint"> · {fmtDate(t.exitDate)}</span>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <div className={`mono ${netClass}`} style={{ fontSize: 16, fontWeight: 600 }}>{fmtSigned(c.net)}</div>
+                          <div className={`mono ${netClass}`} style={{ fontSize: 12, opacity: 0.85 }}>{fmtPct(c.roi)}</div>
+                        </div>
+                      </div>
+
+                      {isOpen && (
+                        <div className="bd-t" style={{ padding: "12px 14px 14px" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                            <KV k="Margin" v={"$" + (parseFloat(t.margin) || 0).toLocaleString()} />
+                            <KV k="Notional" v={fmtMoney(c.notional)} />
+                            <KV k="Stop Loss" v={t.stopLoss ? fmtPrice(t.stopLoss) : "—"} />
+                            <KV k="Take Profit" v={t.takeProfit ? fmtPrice(t.takeProfit) : "—"} />
+                            <KV k="R-multiple" v={c.R == null ? "—" : (c.R > 0 ? "+" : "") + c.R.toFixed(2) + "R"} vClass={c.R == null ? "" : c.R >= 0 ? "t-green" : "t-red"} />
+                            <KV k="ค่าธรรมเนียม" v={t.fees ? fmtMoney(parseFloat(t.fees)) : "$0.00"} />
+                            <KV k="สภาพตลาด" v={labelOf(MARKETS, t.market)} />
+                            <KV k="อารมณ์" v={labelOf(EMOTIONS, t.emotion)} />
+                            <KV k="เข้า" v={fmtDate(t.entryDate)} />
+                            <KV k="ทำตามแผน" v={t.followedPlan ? "ใช่" : "ไม่"} vClass={t.followedPlan ? "t-green" : "t-red"} />
+                          </div>
+                          {t.strategy && <Block label="กลยุทธ์ / Setup" text={t.strategy} />}
+                          {t.reason && <Block label="เหตุผลที่เข้า" text={t.reason} />}
+                          {t.notes && <Block label="บทเรียน / โน้ต" text={t.notes} />}
+                          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                            <button className="btn-ghost" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => openEdit(t)}>
+                              <Pencil size={14} /> แก้ไข
+                            </button>
+                            {delConfirm === t.id ? (
+                              <button className="btn-danger" style={{ flex: 1 }} onClick={() => removeTrade(t.id)}>ยืนยันลบ?</button>
+                            ) : (
+                              <button className="btn-ghost danger" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => setDelConfirm(t.id)}>
+                                <Trash2 size={14} /> ลบ
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {tab === "stats" && (
+              <div>
+                {stats.n === 0 ? (
+                  <div className="card" style={{ padding: 28, textAlign: "center" }} >
+                    <div className="t-mute" style={{ fontSize: 14 }}>เพิ่มเทรดเพื่อดูสถิติ</div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Stat label="Win rate" value={stats.winRate.toFixed(1) + "%"} sub={`ชนะ ${stats.winCount} · แพ้ ${stats.lossCount}`} vClass={stats.winRate >= 50 ? "t-green" : "t-text"} />
+                      <Stat label="Profit factor" value={stats.pf === Infinity ? "∞" : stats.pf.toFixed(2)} sub="กำไรรวม ÷ ขาดทุนรวม" vClass={stats.pf >= 1 ? "t-green" : "t-red"} />
+                      <Stat label="กำไรเฉลี่ย/เทรด" value={fmtMoney(stats.avgWin)} vClass="t-green" />
+                      <Stat label="ขาดทุนเฉลี่ย/เทรด" value={"-" + fmtMoney(stats.avgLoss)} vClass="t-red" />
+                      <Stat label="เทรดที่ดีที่สุด" value={stats.best ? fmtSigned(stats.best.c.net) : "—"} sub={stats.best ? stats.best.t.pair : ""} vClass="t-green" />
+                      <Stat label="เทรดที่แย่ที่สุด" value={stats.worst ? fmtSigned(stats.worst.c.net) : "—"} sub={stats.worst ? stats.worst.t.pair : ""} vClass="t-red" />
+                      <Stat label="Avg R-multiple" value={stats.avgR == null ? "—" : (stats.avgR > 0 ? "+" : "") + stats.avgR.toFixed(2) + "R"} sub="กำไรเทียบความเสี่ยง" vClass={stats.avgR == null ? "" : stats.avgR >= 0 ? "t-green" : "t-red"} />
+                      <Stat label="ทำตามแผน" value={stats.planRate.toFixed(0) + "%"} sub="วินัยการเทรด" vClass={stats.planRate >= 70 ? "t-green" : "t-text"} />
+                    </div>
+                    <div className="card" style={{ padding: 14, marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span className="t-mute" style={{ fontSize: 12 }}>ค่าธรรมเนียม + Funding ที่จ่ายทั้งหมด</span>
+                      <span className="mono t-red" style={{ fontSize: 14, fontWeight: 600 }}>-{fmtMoney(stats.fees)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {tab === "insights" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div className="card" style={{ padding: 16 }}>
+                  <div className="t-faint" style={{ fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 10 }}>บัญชีทุน</div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: startCapital > 0 ? 14 : 0 }}>
+                    <div style={{ flex: 1 }}>
+                      <div className="t-mute" style={{ fontSize: 12, marginBottom: 6 }}>ทุนเริ่มต้น (USD)</div>
+                      <input className="inp mono" inputMode="decimal" placeholder="เช่น 1000" value={capInput} onChange={(e) => setCapInput(e.target.value)} />
+                    </div>
+                    <button className="btn-primary" onClick={commitCapital} style={{ padding: "10px 18px" }}>ตั้ง</button>
+                  </div>
+                  {startCapital > 0 ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Stat label="ยอดปัจจุบัน" value={fmtMoney(risk.balance)} vClass={risk.balance >= startCapital ? "t-green" : "t-red"} />
+                      <Stat label="ผลตอบแทนบัญชี" value={risk.accountReturnPct == null ? "—" : fmtPct(risk.accountReturnPct)} vClass={(risk.accountReturnPct || 0) >= 0 ? "t-green" : "t-red"} />
+                    </div>
+                  ) : (
+                    <div className="t-faint" style={{ fontSize: 12, marginTop: 10 }}>ใส่ทุนเริ่มต้นเพื่อดูยอดบัญชี ผลตอบแทน และ % drawdown</div>
+                  )}
+                </div>
+
+                {stats.n === 0 ? (
+                  <div className="card" style={{ padding: 28, textAlign: "center" }}>
+                    <div className="t-mute" style={{ fontSize: 14 }}>เพิ่มเทรดเพื่อดูการวิเคราะห์เชิงลึก</div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <SectionTitle icon={<Activity size={14} />} text="ความเสี่ยง & ความสม่ำเสมอ" />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <Stat label="Max Drawdown" value={"-" + fmtMoney(risk.maxDD)} sub={startCapital > 0 ? "-" + risk.maxDDpct.toFixed(1) + "% จากจุดสูงสุด" : "ขาดทุนต่อเนื่องสูงสุด"} vClass="t-red" />
+                        <Stat label="Expectancy / เทรด" value={fmtSigned(risk.expectancy)} sub="กำไรคาดหวังต่อเทรด" vClass={risk.expectancy >= 0 ? "t-green" : "t-red"} />
+                        <Stat label="ชนะติดกันสูงสุด" value={risk.winStreak + " เทรด"} vClass="t-green" />
+                        <Stat label="แพ้ติดกันสูงสุด" value={risk.lossStreak + " เทรด"} vClass="t-red" />
+                        <Stat label="Total R" value={risk.totalR == null ? "—" : (risk.totalR > 0 ? "+" : "") + risk.totalR.toFixed(1) + "R"} sub="ผลรวม R ที่ทำได้" vClass={risk.totalR == null ? "" : risk.totalR >= 0 ? "t-green" : "t-red"} />
+                        <Stat label="ระยะถือเฉลี่ย" value={fmtDuration(risk.avgHold)} sub="เข้า → ออก" />
+                      </div>
+                    </div>
+
+                    <Breakdown title="ตามกลยุทธ์ / Setup" icon={<Target size={14} />} data={breakdowns.strategy} />
+                    <Breakdown title="ตามเหรียญ" data={breakdowns.coin} />
+                    <Breakdown title="Long vs Short" data={breakdowns.direction} />
+                    <Breakdown title="ตามอารมณ์" icon={<Flame size={14} />} data={breakdowns.emotion} />
+                    <Breakdown title="ตามสภาพตลาด" data={breakdowns.market} />
+                    <Breakdown title="ตามวันในสัปดาห์" data={breakdowns.day} />
+                  </>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* floating add */}
+      {!loading && <button className="fab" onClick={openAdd} aria-label="เพิ่มเทรด"><Plus size={24} /></button>}
+
+      {/* form sheet */}
+      {showForm && (
+        <div className="sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) closeForm(); }}>
+          <div className="sheet">
+            <div className="sheet-head bd-b">
+              <span style={{ fontWeight: 600, fontSize: 16 }}>{editing ? "แก้ไขเทรด" : "เพิ่มเทรดใหม่"}</span>
+              <button className="iconbtn" onClick={closeForm}><X size={18} /></button>
+            </div>
+
+            <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+              <Labeled label="เหรียญ / คู่เทรด">
+                <input className="inp mono" placeholder="BTC/USDT" value={form.pair} onChange={(e) => set("pair", e.target.value.toUpperCase())} />
+              </Labeled>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Labeled label="ประเภท">
+                  <Seg value={form.type} onChange={(v) => set("type", v)} options={[{ value: "spot", label: "Spot" }, { value: "futures", label: "Futures" }]} />
+                </Labeled>
+                {form.type === "futures" ? (
+                  <Labeled label="ทิศทาง">
+                    <Seg value={form.direction} onChange={(v) => set("direction", v)} options={[{ value: "long", label: "Long", color: "#21C997" }, { value: "short", label: "Short", color: "#F75A68" }]} />
+                  </Labeled>
+                ) : <div />}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: form.type === "futures" ? "1fr 1fr" : "1fr", gap: 12 }}>
+                <Labeled label="เงินทุนที่ใส่ / Margin (USD)">
+                  <input className="inp mono" inputMode="decimal" placeholder="500" value={form.margin} onChange={(e) => set("margin", e.target.value)} />
+                </Labeled>
+                {form.type === "futures" && (
+                  <Labeled label="Leverage (x)">
+                    <input className="inp mono" inputMode="decimal" placeholder="10" value={form.leverage} onChange={(e) => set("leverage", e.target.value)} />
+                  </Labeled>
+                )}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Labeled label="ราคาเข้า">
+                  <input className="inp mono" inputMode="decimal" placeholder="0.00" value={form.entryPrice} onChange={(e) => set("entryPrice", e.target.value)} />
+                </Labeled>
+                <Labeled label="ราคาออก">
+                  <input className="inp mono" inputMode="decimal" placeholder="0.00" value={form.exitPrice} onChange={(e) => set("exitPrice", e.target.value)} />
+                </Labeled>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <Labeled label="Stop Loss">
+                  <input className="inp mono" inputMode="decimal" placeholder="—" value={form.stopLoss} onChange={(e) => set("stopLoss", e.target.value)} />
+                </Labeled>
+                <Labeled label="Take Profit">
+                  <input className="inp mono" inputMode="decimal" placeholder="—" value={form.takeProfit} onChange={(e) => set("takeProfit", e.target.value)} />
+                </Labeled>
+                <Labeled label="Fee+Funding">
+                  <input className="inp mono" inputMode="decimal" placeholder="0" value={form.fees} onChange={(e) => set("fees", e.target.value)} />
+                </Labeled>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Labeled label="เวลาเข้า">
+                  <input className="inp" type="datetime-local" value={form.entryDate} onChange={(e) => set("entryDate", e.target.value)} />
+                </Labeled>
+                <Labeled label="เวลาออก">
+                  <input className="inp" type="datetime-local" value={form.exitDate} onChange={(e) => set("exitDate", e.target.value)} />
+                </Labeled>
+              </div>
+
+              <div className="bd-t" style={{ paddingTop: 16 }} />
+
+              <Labeled label="กลยุทธ์ / Setup" hint="เช่น breakout, แนวรับเด้ง, ตามเทรนด์">
+                <input className="inp" placeholder="ชื่อ setup ที่ใช้" value={form.strategy} onChange={(e) => set("strategy", e.target.value)} />
+              </Labeled>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Labeled label="สภาพตลาด">
+                  <select className="inp" value={form.market} onChange={(e) => set("market", e.target.value)}>
+                    {MARKETS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </Labeled>
+                <Labeled label="อารมณ์ตอนเทรด">
+                  <select className="inp" value={form.emotion} onChange={(e) => set("emotion", e.target.value)}>
+                    {EMOTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </Labeled>
+              </div>
+
+              <Labeled label="ทำตามแผนที่วางไว้ไหม?">
+                <Seg value={form.followedPlan} onChange={(v) => set("followedPlan", v)} options={[{ value: true, label: "ทำตามแผน", color: "#21C997" }, { value: false, label: "ไม่ได้ทำตามแผน", color: "#F75A68" }]} />
+              </Labeled>
+
+              <Labeled label="เหตุผลที่เข้า (Thesis)">
+                <textarea className="inp" placeholder="ทำไมถึงคิดว่าจะไป?" value={form.reason} onChange={(e) => set("reason", e.target.value)} />
+              </Labeled>
+
+              <Labeled label="บทเรียน / สิ่งที่จะปรับ">
+                <textarea className="inp" placeholder="อะไรดี อะไรพลาด ครั้งหน้าทำต่างยังไง" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
+              </Labeled>
+            </div>
+
+            <div className="sheet-foot bd-t">
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                <div>
+                  <div className="t-faint" style={{ fontSize: 11 }}>กำไร/ขาดทุนสุทธิ</div>
+                  <div className={`mono ${valid ? (live.net > 0 ? "t-green" : live.net < 0 ? "t-red" : "t-mute") : "t-faint"}`} style={{ fontSize: 20, fontWeight: 700 }}>
+                    {valid ? fmtSigned(live.net) : "—"}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div className="t-faint" style={{ fontSize: 11 }}>ROI (ต่อ margin)</div>
+                  <div className={`mono ${valid ? (live.roi > 0 ? "t-green" : live.roi < 0 ? "t-red" : "t-mute") : "t-faint"}`} style={{ fontSize: 20, fontWeight: 700 }}>
+                    {valid ? fmtPct(live.roi) : "—"}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="btn-ghost" style={{ flex: 1 }} onClick={closeForm}>ยกเลิก</button>
+                <button className="btn-primary" style={{ flex: 2 }} onClick={save} disabled={!valid}>{editing ? "บันทึกการแก้ไข" : "บันทึกเทรด"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* clear all confirm */}
+      {confirmClear && (
+        <div className="sheet-backdrop" style={{ alignItems: "center" }} onClick={(e) => { if (e.target === e.currentTarget) setConfirmClear(false); }}>
+          <div className="card" style={{ maxWidth: 360, width: "calc(100% - 32px)", padding: 22, textAlign: "center" }}>
+            <AlertTriangle size={28} className="t-red" style={{ margin: "0 auto 12px" }} />
+            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>ลบข้อมูลทั้งหมด?</div>
+            <div className="t-mute" style={{ fontSize: 13, marginBottom: 18 }}>เทรดทั้งหมด {trades.length} รายการจะถูกลบถาวร กู้คืนไม่ได้</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmClear(false)}>ยกเลิก</button>
+              <button className="btn-danger" style={{ flex: 1 }} onClick={() => { persist([]); setConfirmClear(false); flash("ลบข้อมูลทั้งหมดแล้ว"); }}>ลบทั้งหมด</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div>
+      <div className="t-faint" style={{ fontSize: 10, letterSpacing: ".03em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+      <div className="mono t-text" style={{ fontSize: 16, fontWeight: 600 }}>{value}</div>
+    </div>
+  );
+}
+
+function Block({ label, text }) {
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="t-faint" style={{ fontSize: 11, marginBottom: 4 }}>{label}</div>
+      <div className="t-text" style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{text}</div>
+    </div>
+  );
+}
+
+function dirBadge(dir) {
+  return dir === "short"
+    ? { background: "rgba(247,90,104,0.13)", color: "#F75A68" }
+    : { background: "rgba(33,201,151,0.13)", color: "#21C997" };
+}
+
+function SectionTitle({ icon, text }) {
+  return (
+    <div className="t-mute" style={{ fontSize: 12, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+      {icon}{text}
+    </div>
+  );
+}
+
+function Breakdown({ title, icon, data }) {
+  if (!data || data.length === 0) return null;
+  const maxAbs = Math.max(...data.map((d) => Math.abs(d.pnl)), 1);
+  return (
+    <div>
+      <SectionTitle icon={icon} text={title} />
+      <div className="card" style={{ padding: "2px 6px" }}>
+        {data.map((d) => {
+          const pos = d.pnl >= 0;
+          const w = Math.max(4, (Math.abs(d.pnl) / maxAbs) * 100);
+          return (
+            <div key={d.key} className="bd-row" style={{ padding: "11px 8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 7 }}>
+                <span className="t-text" style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.key}</span>
+                <span className={`mono ${pos ? "t-green" : "t-red"}`} style={{ fontSize: 13, fontWeight: 600, flexShrink: 0 }}>{fmtSigned(d.pnl)}</span>
+              </div>
+              <div className="bartrack"><div className="barfill" style={{ width: w + "%", background: pos ? "#21C997" : "#F75A68" }} /></div>
+              <div className="t-faint" style={{ fontSize: 11, marginTop: 7 }}>
+                {d.count} เทรด · ชนะ {d.winRate.toFixed(0)}%{d.avgR != null ? ` · ${d.avgR > 0 ? "+" : ""}${d.avgR.toFixed(2)}R` : ""}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+body{ background:#0B0F14; margin:0; }
+.app{ font-family:'Space Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif; -webkit-font-smoothing:antialiased; }
+.app *{ box-sizing:border-box; }
+.mono{ font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric:tabular-nums; }
+.bg-ink{ background:#0B0F14; }
+.t-text{ color:#E7EDF3; } .t-mute{ color:#8A97A4; } .t-faint{ color:#586472; }
+.t-green{ color:#21C997; } .t-red{ color:#F75A68; } .t-gold{ color:#E6B24D; }
+.mx-auto{ margin-left:auto; margin-right:auto; }
+.card{ background:#141A21; border:1px solid #1E252E; border-radius:14px; }
+.bd-b{ border-bottom:1px solid #1E252E; }
+.bd-t{ border-top:1px solid #1E252E; }
+.bd-line{ border-color:#28313C; }
+
+.header{ position:sticky; top:0; z-index:20; background:rgba(11,15,20,0.85); backdrop-filter:blur(10px); }
+.logomark{ display:flex; align-items:flex-end; gap:3px; height:22px; }
+.logomark span{ width:5px; border-radius:1px; }
+.logomark span:nth-child(1){ height:11px; background:#21C997; }
+.logomark span:nth-child(2){ height:22px; background:#E6B24D; }
+.logomark span:nth-child(3){ height:15px; background:#F75A68; }
+
+.iconbtn{ background:transparent; border:none; color:#8A97A4; cursor:pointer; padding:6px; border-radius:8px; display:flex; align-items:center; }
+.iconbtn:hover{ color:#E7EDF3; background:#1B222B; }
+
+.menu{ position:absolute; right:0; top:38px; z-index:40; background:#0E141B; border:1px solid #28313C; border-radius:12px; padding:6px; min-width:190px; box-shadow:0 12px 30px rgba(0,0,0,0.5); }
+.menu button{ width:100%; display:flex; align-items:center; gap:9px; background:transparent; border:none; color:#E7EDF3; padding:10px 10px; border-radius:8px; cursor:pointer; font-family:inherit; font-size:13px; text-align:left; }
+.menu button:hover{ background:#1B222B; }
+.menu button:disabled{ opacity:.4; cursor:not-allowed; }
+
+.seg{ display:flex; background:#11161D; border:1px solid #28313C; border-radius:11px; padding:3px; gap:3px; }
+.seg button{ flex:1; padding:9px 6px; border-radius:8px; font-size:13px; font-weight:500; color:#8A97A4; background:transparent; border:none; cursor:pointer; font-family:inherit; transition:background .15s,color .15s; }
+.seg button.active{ background:#1B222B; color:#E7EDF3; }
+
+.tradecard{ overflow:hidden; }
+.trow{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:14px; cursor:pointer; }
+.trow:hover{ background:#171E26; }
+.badge{ font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:6px; letter-spacing:.02em; white-space:nowrap; }
+
+.inp{ width:100%; background:#1B222B; border:1px solid #28313C; color:#E7EDF3; border-radius:10px; padding:10px 12px; font-size:14px; font-family:inherit; outline:none; transition:border-color .15s, box-shadow .15s; }
+.inp:focus{ border-color:#E6B24D; box-shadow:0 0 0 3px rgba(230,178,77,0.15); }
+.inp::placeholder{ color:#586472; }
+textarea.inp{ resize:vertical; min-height:62px; line-height:1.5; }
+select.inp{ appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238A97A4' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:30px; }
+
+.btn-primary{ background:#E6B24D; color:#17110A; font-weight:600; border:none; border-radius:10px; padding:13px 16px; cursor:pointer; font-family:inherit; font-size:14px; transition:filter .15s; }
+.btn-primary:hover{ filter:brightness(1.07); }
+.btn-primary:disabled{ opacity:.35; cursor:not-allowed; filter:none; }
+.btn-ghost{ background:transparent; color:#8A97A4; border:1px solid #28313C; border-radius:10px; padding:13px 16px; cursor:pointer; font-family:inherit; font-size:14px; }
+.btn-ghost:hover{ color:#E7EDF3; border-color:#3A4654; }
+.btn-ghost.danger:hover{ color:#F75A68; border-color:rgba(247,90,104,0.4); }
+.btn-danger{ background:rgba(247,90,104,0.15); color:#F75A68; border:1px solid rgba(247,90,104,0.4); border-radius:10px; padding:13px 16px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:600; }
+.btn-danger:hover{ background:rgba(247,90,104,0.25); }
+
+.fab{ position:fixed; right:20px; bottom:24px; z-index:35; width:56px; height:56px; border-radius:50%; background:#E6B24D; color:#17110A; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(230,178,77,0.35); transition:filter .15s, transform .15s; }
+.fab:hover{ filter:brightness(1.07); transform:translateY(-1px); }
+
+.sheet-backdrop{ position:fixed; inset:0; background:rgba(4,6,9,0.72); backdrop-filter:blur(2px); z-index:50; display:flex; align-items:flex-end; justify-content:center; }
+.sheet{ background:#0E141B; border:1px solid #28313C; border-bottom:none; border-radius:18px 18px 0 0; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; animation:sheetUp .22s ease-out; }
+.sheet-head{ position:sticky; top:0; background:#0E141B; z-index:2; display:flex; align-items:center; justify-content:space-between; padding:16px; }
+.sheet-foot{ position:sticky; bottom:0; background:#0E141B; padding:14px 16px 18px; }
+@keyframes sheetUp{ from{ transform:translateY(18px); opacity:.4; } to{ transform:translateY(0); opacity:1; } }
+@media(min-width:640px){
+  .sheet-backdrop{ align-items:center; }
+  .sheet{ border-radius:18px; border-bottom:1px solid #28313C; max-height:88vh; }
+}
+
+.toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:60; background:#1B222B; border:1px solid #3A4654; color:#E7EDF3; font-size:13px; padding:10px 16px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+
+.bd-row{ border-bottom:1px solid #1A2129; }
+.bd-row:last-child{ border-bottom:none; }
+.bartrack{ width:100%; height:6px; background:#1B222B; border-radius:4px; overflow:hidden; }
+.barfill{ height:100%; border-radius:4px; transition:width .3s ease; }
+button:focus-visible, a:focus-visible{ outline:2px solid #E6B24D; outline-offset:2px; }
+@media (prefers-reduced-motion: reduce){ .sheet{ animation:none; } .fab{ transition:none; } }
+`;
+
+
+
+const __root = ReactDOM.createRoot(document.getElementById("root"));
+__root.render(<CryptoTradingJournal />);
+
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function (e) { console.log("SW registration failed:", e); });
+  });
+}
+</script>
+</body>
+</html>
